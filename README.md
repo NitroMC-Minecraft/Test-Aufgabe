@@ -1,409 +1,233 @@
----
+# NitroMC – Developer Bewerbungsaufgabe
 
-# NitroMC.NET – Developer Bewerbung
+## Aufgabe: Mojang API Integration Plugin
 
-## Velocity Netzwerk-Bansystem
-
----
-
-## Übersicht
-
-Im Rahmen dieser Bewerbungsaufgabe entwickelst du ein netzwerkweites Moderationssystem für einen Velocity-Proxy.
-Das System soll in einer realistischen Serverumgebung funktionieren und typische Anforderungen eines produktiven Minecraft-Netzwerks abbilden.
-
-Der Fokus liegt nicht nur auf der Funktionalität, sondern insbesondere auf Architektur, Datenmodellierung, Stabilität und Erweiterbarkeit.
+Entwickle ein Minecraft-Plugin für Paper, das die Mojang API verwendet, um Spielerinformationen abzurufen und im Spiel darzustellen.
 
 ---
 
-## Ziel der Aufgabe
+## Funktionsumfang
 
-Implementiere ein zentrales Bansystem, das folgende Moderationsmaßnahmen unterstützt:
+### `/mcinfo <spielername>`
 
-* Ban / TempBan
-* Mute / TempMute
-* Kick
-* Warn
+Zeigt folgende Informationen zu einem Spieler an:
 
-Das System soll:
+* UUID
+* aktueller Name
+* Skin- oder Profil-Link
+* Zeitpunkt der Abfrage
+* Fehlermeldung, falls der Spieler nicht existiert
 
-* netzwerkweit funktionieren
-* persistent sein
-* sauber strukturiert implementiert werden
-* unter realistischen Bedingungen stabil laufen
+### `/namehistory <spielername>`
 
----
-
-## Technische Rahmenbedingungen
-
-| Bereich            | Anforderung           |
-| ------------------ | --------------------- |
-| Plattform          | Velocity              |
-| Programmiersprache | Java                  |
-| Datenbank          | Pflicht (SQL-basiert) |
-| Identifikation     | UUID                  |
-| Architektur        | Proxy-zentriert       |
+Zeigt bekannte Namensdaten eines Spielers an.
 
 ---
 
-## Mindestanforderungen
+## Technische Anforderungen
 
-### Sanktionen erstellen
+* Java 17 oder höher
+* Paper API
+* Gradle oder Maven als Build-Tool
+* HTTP-Requests müssen asynchron ausgeführt werden
+* Keine API-Abfragen im Main Thread
+* JSON-Daten müssen korrekt verarbeitet werden
+* Saubere und nachvollziehbare Code-Struktur
+* Die vorgegebene `MessageUtil`-Klasse muss für alle Chat-Ausgaben verwendet werden
 
-```
-/ban <spieler> <grund>
-/tempban <spieler> <dauer> <grund>
-/mute <spieler> <grund>
-/tempmute <spieler> <dauer> <grund>
-/kick <spieler> <grund>
-/warn <spieler> <grund>
-```
+---
 
-### Sanktionen aufheben
+## Empfohlene Dependencies
 
-```
-/unban <spieler>
-/unmute <spieler>
-```
+### `build.gradle`
 
-### Informationen abrufen
+```gradle
+plugins {
+    id 'java'
+}
 
-```
-/history <spieler>
-/check <spieler>
+group = 'de.nitromc'
+version = '1.0.0'
+
+repositories {
+    mavenCentral()
+    maven {
+        name = 'papermc'
+        url = 'https://repo.papermc.io/repository/maven-public/'
+    }
+}
+
+dependencies {
+    compileOnly 'io.papermc.paper:paper-api:1.20.4-R0.1-SNAPSHOT'
+    implementation 'com.google.code.gson:gson:2.10.1'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
 ```
 
 ---
 
-## Funktionale Anforderungen
+## Erwartete Projektstruktur
 
-### Ban-System
-
-* Login wird bei aktivem Ban verhindert
-* Anzeige von Grund, Moderator und Dauer
-* automatische Entsperrung bei Ablauf
-* keine Namensbasierte Logik – ausschließlich UUID
-
----
-
-### Mute-System
-
-* Chat wird bei aktivem Mute blockiert
-* verständliche Rückmeldung an den Spieler
-* automatische Berücksichtigung von Ablaufzeiten
-
----
-
-### Kick-System
-
-* sofortige Trennung vom Netzwerk
-* persistente Speicherung als Moderationsaktion
-
----
-
-### Warn-System
-
-* Speicherung von Verwarnungen
-* vollständige Einsicht in die Historie
-* keine automatische Eskalation erforderlich
-
----
-
-## Datenbank & Persistenz
-
-### Pflicht
-
-* Verwendung einer relationalen Datenbank
-* keine reine Datei-basierte Lösung
-
----
-
-### Erwartetes Datenmodell
-
-Das System sollte mindestens folgende Daten abbilden:
-
-* Sanktions-ID
-* Typ
-* Spieler-UUID
-* Spielername (optional, empfohlen)
-* Staff-UUID
-* Staff-Name
-* Grund
-* Erstellungszeitpunkt
-* Ablaufzeitpunkt
-* Status
-* Aufhebungsdaten
-
----
-
-### Statusmodell (Beispiel)
-
-```
-ACTIVE
-EXPIRED
-REVOKED
-EXECUTED
+```text
+src/main/java/de/nitromc/api/
+├── NitroApiPlugin.java
+├── command/
+│   ├── McInfoCommand.java
+│   └── NameHistoryCommand.java
+├── service/
+│   └── MojangApiService.java
+├── model/
+│   └── MojangProfile.java
+└── util/
+    └── MessageUtil.java
 ```
 
 ---
 
-### Technische Anforderungen
+## Vorgegebene Utility-Klasse
 
-* asynchrone Datenbankzugriffe
-* klare Trennung von Repository und Business-Logik
-* keine SQL-Statements in Commands oder Listenern
+Die folgende Klasse muss im Projekt unter `de.nitromc.api.util.MessageUtil` verwendet werden.
 
----
+```java
+package de.nitromc.api.util;
 
-## Architektur
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import net.md_5.bungee.api.ChatColor;
+import org.bukkit.command.CommandSender;
 
-Eine saubere Struktur wird erwartet.
+public final class MessageUtil {
 
-Beispiel:
+    private static final Pattern HEX_PATTERN = Pattern.compile("(#[a-fA-F0-9]{6})");
+    private static final String PREFIX = "#9500DD&lN#7F1DE1&lI#693BE5&lT#5358E9&lR#3C75EC&lO#2693F0&lM#10B0F4&lC &8» &7";
 
+    private MessageUtil() {
+    }
+
+    public static void send(CommandSender sender, String message) {
+        sender.sendMessage(colorize(PREFIX + message));
+    }
+
+    public static String prefixed(String message) {
+        return colorize(PREFIX + message);
+    }
+
+    public static String colorize(String input) {
+        Matcher matcher = HEX_PATTERN.matcher(input);
+        StringBuilder builder = new StringBuilder();
+
+        while (matcher.find()) {
+            matcher.appendReplacement(builder, ChatColor.of(matcher.group(1)).toString());
+        }
+
+        matcher.appendTail(builder);
+        return ChatColor.translateAlternateColorCodes('&', builder.toString());
+    }
+
+    public static String stripColors(String input) {
+        String colorized = colorize(input);
+        String stripped = ChatColor.stripColor(colorized);
+        return stripped == null ? "" : stripped;
+    }
+}
 ```
-command/
-service/
-repository/
-model/
-listener/
-permission/
-message/
-```
 
----
+Regeln zur Nutzung:
 
-### Empfohlene Services
-
-* SanctionService
-* BanCheckService
-* HistoryService
-* MuteService
-
----
-
-### Technischer Hinweis
-
-Commands und Listener sollten möglichst wenig Logik enthalten.
-Die eigentliche Fachlogik gehört in Services.
-
----
-
-## Nebenläufigkeit & Konsistenz
-
-Dein System muss korrekt mit parallelen Aktionen umgehen.
-
-Typische Szenarien:
-
-* Zwei Moderatoren bannen gleichzeitig denselben Spieler
-* Ein Ban läuft während eines Login-Versuchs ab
-* Ein Mute endet während einer Chatnachricht
-
----
-
-### Erwartung
-
-* keine doppelten Sanktionen
-* keine Race Conditions
-* konsistente Zustände
-
----
-
-### Tipp
-
-Validiere den aktuellen Zustand immer erneut, bevor du Änderungen durchführst.
-
----
-
-## Zeitverarbeitung
-
-Das System muss mit temporären Sanktionen korrekt umgehen.
-
-### Anforderungen
-
-* Unterstützung von Dauerformaten wie:
-
-  * `30m`
-  * `12h`
-  * `7d`
-* korrekte Ablaufberechnung
-* zuverlässige Aktivitätsprüfung
-
----
-
-### Empfehlung
-
-Nutze Java Time APIs:
-
-* Instant
-* Duration
-* OffsetDateTime
-
----
-
-## UUID-Handling
-
-* Sanktionen basieren ausschließlich auf UUID
-* Namen dienen nur der Anzeige
-* Namensänderungen dürfen keine Probleme verursachen
+* Alle Chat-Ausgaben müssen über `MessageUtil.send(...)` oder `MessageUtil.prefixed(...)` laufen.
+* Eigene Prefix-Systeme außerhalb dieser Klasse sind nicht erwünscht.
+* Farbcodes sollen über `MessageUtil.colorize(...)` verarbeitet werden.
 
 ---
 
 ## Permissions
 
-Beispielstruktur:
-
-```
-nitromc.punish.ban
-nitromc.punish.tempban
-nitromc.punish.unban
-nitromc.punish.mute
-nitromc.punish.tempmute
-nitromc.punish.unmute
-nitromc.punish.kick
-nitromc.punish.warn
-nitromc.punish.history
-nitromc.punish.check
+```text
+nitromc.mcinfo
+nitromc.namehistory
 ```
 
 ---
 
-## Login- und Chat-Integration
+## `plugin.yml`
 
-### Login
+```yaml
+name: NitroApiPlugin
+version: 1.0.0
+main: de.nitromc.api.NitroApiPlugin
+api-version: '1.20'
 
-* Prüfung erfolgt direkt beim Verbindungsaufbau
-* keine unnötigen Verzögerungen
+commands:
+  mcinfo:
+    description: Zeigt Mojang-Spielerinformationen an
+    usage: /mcinfo <spielername>
+    permission: nitromc.mcinfo
 
-### Chat
+  namehistory:
+    description: Zeigt Namensinformationen eines Spielers an
+    usage: /namehistory <spielername>
+    permission: nitromc.namehistory
 
-* aktive Mutes blockieren Nachrichten
-* klare Fehlermeldungen
-
----
-
-## History-System
-
-* aktive und vergangene Sanktionen einsehbar
-* klare Statusanzeige
-* vollständige Informationen
-
----
-
-## Performance
-
-* keine blockierenden Operationen
-* effiziente Datenbankzugriffe
-* optionales Caching möglich
-
----
-
-### Hinweis
-
-Ein falscher Cache ist schlimmer als kein Cache.
-
----
-
-## Fehlerbehandlung
-
-Das System muss robust sein.
-
-### Beispiele
-
-* Datenbank nicht erreichbar
-* ungültige Dauer
-* Spieler nicht gefunden
-
----
-
-### Erwartung
-
-* sinnvolle Logs
-* keine stillen Fehler
-* stabile Laufzeit
-
----
-
-## Git-Anforderungen
-
-### Pflicht
-
-* Nutzung von Git
-* saubere Commit-Historie
-
----
-
-### Gute Beispiele
-
-```
-Add sanction model and status system
-Implement async punishment repository
-Add login ban check via Velocity event
-Implement duration parser for temp bans
+permissions:
+  nitromc.mcinfo:
+    default: op
+  nitromc.namehistory:
+    default: op
 ```
 
 ---
 
-### Schlechte Beispiele
+## Hinweise zur API-Nutzung
 
-```
-fix
-update
-final
-test
-```
+Das Plugin soll Daten über die Mojang API abrufen. Erwartet wird eine saubere Service-Klasse, zum Beispiel `MojangApiService`, welche die API-Kommunikation kapselt.
 
----
+Beispiele für sinnvolle Aufgaben der Service-Klasse:
 
-## Codequalität
-
-Wichtig:
-
-* klare Struktur
-* lesbare Namen
-* keine God Classes
-* keine unnötige Komplexität
+* Spielerprofil anhand eines Spielernamens abrufen
+* UUID eines Spielers ermitteln
+* Fehlerhafte oder leere API-Antworten behandeln
+* Timeouts setzen
+* Ergebnisse als eigenes Model, z. B. `MojangProfile`, zurückgeben
 
 ---
 
-## Dokumentation
+## Optionale Erweiterungen
 
-Deine README muss enthalten:
-
-* Projektbeschreibung
-* Setup-Anleitung
-* Datenbank-Konfiguration
-* Command-Übersicht
-* Permission-Übersicht
-
----
-
-## Optionale Features
-
-* IP-Bans
-* Case-System
-* Staff-Notizen
-* Eskalationslogik
-* GUI oder Pagination
-* REST-/API-Vorbereitung
-
----
-
-## Bewertung
-
-Wir achten besonders auf:
-
-* Architektur
-* Datenmodell
-* Stabilität
-* Codequalität
-* Git-Workflow
-* Praxistauglichkeit
+* Cache-System zur Reduzierung von API-Anfragen
+* Konfigurierbare Nachrichten über eine Config-Datei
+* Klickbare Chat-Nachrichten, z. B. Profil-Links
+* Sauberes Error-Handling bei Timeouts, ungültigen Antworten oder API-Ausfällen
+* Strukturierte Model- und Service-Klassen
+* Unit-Tests für API-Service oder Utility-Methoden
 
 ---
 
 ## Abgabe
 
-* Git Repository
-* vollständiger Code
-* funktionierende Konfiguration
-* README
+Das GitHub-Repository muss enthalten:
+
+* vollständigen Source Code
+* `README.md`
+* `build.gradle` oder `pom.xml`
+* `plugin.yml`
+* kurze Erklärung der API-Nutzung
+* Installationsanleitung
+* Beispielausgaben oder Screenshots
+
+---
+
+## Bewertungskriterien
+
+Bewertet wird:
+
+* Verständnis für externe APIs
+* sauberes Async-Handling
+* Codequalität und Struktur
+* Fehlerbehandlung
+* Lesbarkeit des GitHub-Repositories
+* sinnvolle Nutzung der vorgegebenen `MessageUtil`-Klasse
