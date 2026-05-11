@@ -148,8 +148,8 @@ Regeln zur Nutzung:
 ## Permissions
 
 ```text
-nitromc.mcinfo
-nitromc.namehistory
+nitromc.command.mcinfo
+nitromc.command.namehistory
 ```
 
 ---
