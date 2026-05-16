@@ -4,7 +4,7 @@
  * All rights reserved.
  */
 
-package de.lukaspellny.nitrotutorial.util;
+package net.nitromc.nitroapiplugin.util;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -14,7 +14,7 @@ import org.bukkit.command.CommandSender;
 public final class MessageUtil {
 
     private static final Pattern HEX_PATTERN = Pattern.compile("(#[a-fA-F0-9]{6})");
-    private static final String PREFIX = "#9500DD&lN#7F1DE1&lI#693BE5&lT#5358E9&lR#3C75EC&lO#2693F0&lM#10B0F4&lC &8» &7";
+    private static final String PREFIX = "#9500DD&lN#7F1DE1&lI#693BE5&lT#5358E9&lR#3C75EC&lO#2693F0&lM#10B0F4&lC &8» &7"; //main prefix
 
     private MessageUtil() {
     }
