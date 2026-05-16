@@ -1,151 +1,91 @@
+---
+
 # NitroMC – Developer Bewerbungsaufgabe
 
-## Aufgabe: Mojang API Integration Plugin
+## Aufgabe: Minecraft API Integration Plugin
 
-Entwickle ein Minecraft-Plugin für Paper, das die Mojang API verwendet, um Spielerinformationen abzurufen und im Spiel darzustellen.
-
----
-
-## Funktionsumfang
-
-### `/mcinfo <spielername>`
-
-Zeigt folgende Informationen zu einem Spieler an:
-
-* UUID
-* aktueller Name
-* Skin- oder Profil-Link
-* Zeitpunkt der Abfrage
-* Fehlermeldung, falls der Spieler nicht existiert
-
-### `/namehistory <spielername>`
-
-Zeigt bekannte Namensdaten eines Spielers an.
+Entwickle ein Plugin für Paper, das die API von [mc-api.io](https://www.mc-api.io/docs) verwendet, um Spielerinformationen abzurufen und im Spiel darzustellen.
 
 ---
 
-## Technische Anforderungen
+# Ziel
+
+Das Plugin soll externe REST-APIs sauber integrieren, HTTP-Requests asynchron verarbeiten und die erhaltenen JSON-Daten strukturiert im Spiel ausgeben.
+
+---
+
+# Technische Anforderungen
 
 * Java 17 oder höher
-* Paper API
-* Gradle oder Maven als Build-Tool
-* HTTP-Requests müssen asynchron ausgeführt werden
+* Paper API 1.20+
+* Maven oder Gradle
+* HTTP-Requests ausschließlich asynchron
 * Keine API-Abfragen im Main Thread
-* JSON-Daten müssen korrekt verarbeitet werden
-* Saubere und nachvollziehbare Code-Struktur
-* Die vorgegebene `MessageUtil`-Klasse muss für alle Chat-Ausgaben verwendet werden
+* Saubere Fehlerbehandlung
+* Strukturierte Service- und Model-Klassen
+* JSON-Verarbeitung mit Gson
+* Alle Nachrichten müssen über `MessageUtil` ausgegeben werden
 
 ---
 
-## Empfohlene Dependencies
+# Verwendete API
 
-### `build.gradle`
+Dokumentation:
 
-```gradle
-plugins {
-    id 'java'
-}
+[mc-api.io Dokumentation](https://www.mc-api.io/)
 
-group = 'de.nitromc'
-version = '1.0.0'
-
-repositories {
-    mavenCentral()
-    maven {
-        name = 'papermc'
-        url = 'https://repo.papermc.io/repository/maven-public/'
-    }
-}
-
-dependencies {
-    compileOnly 'io.papermc.paper:paper-api:1.20.4-R0.1-SNAPSHOT'
-    implementation 'com.google.code.gson:gson:2.10.1'
-}
-
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
-    }
-}
-```
-
----
-
-## Erwartete Projektstruktur
+Beispiel-Endpoints:
 
 ```text
-src/main/java/de/nitromc/api/
-├── NitroApiPlugin.java
-├── command/
-│   ├── McInfoCommand.java
-│   └── NameHistoryCommand.java
-├── service/
-│   └── MojangApiService.java
-├── model/
-│   └── MojangProfile.java
-└── util/
-    └── MessageUtil.java
+https://mc-api.io/api/v1/profile/<spielername>
+```
+
+```text
+https://mc-api.io/api/v1/name-history/<uuid>
 ```
 
 ---
 
-## Vorgegebene Utility-Klasse
+# Befehle
 
-Die folgende Klasse muss im Projekt unter `de.nitromc.api.util.MessageUtil` verwendet werden.
+## `/mcinfo <spielername>`
 
-```java
-package de.nitromc.api.util;
+Zeigt folgende Informationen an:
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import net.md_5.bungee.api.ChatColor;
-import org.bukkit.command.CommandSender;
+* UUID
+* aktueller Spielername
+* Skin-URL
+* Profil-URL
+* Zeitpunkt der Abfrage
+* Fehlernachricht bei ungültigem Spieler oder API-Fehler
 
-public final class MessageUtil {
+### Beispielausgabe
 
-    private static final Pattern HEX_PATTERN = Pattern.compile("(#[a-fA-F0-9]{6})");
-    private static final String PREFIX = "#9500DD&lN#7F1DE1&lI#693BE5&lT#5358E9&lR#3C75EC&lO#2693F0&lM#10B0F4&lC &8» &7";
-
-    private MessageUtil() {
-    }
-
-    public static void send(CommandSender sender, String message) {
-        sender.sendMessage(colorize(PREFIX + message));
-    }
-
-    public static String prefixed(String message) {
-        return colorize(PREFIX + message);
-    }
-
-    public static String colorize(String input) {
-        Matcher matcher = HEX_PATTERN.matcher(input);
-        StringBuilder builder = new StringBuilder();
-
-        while (matcher.find()) {
-            matcher.appendReplacement(builder, ChatColor.of(matcher.group(1)).toString());
-        }
-
-        matcher.appendTail(builder);
-        return ChatColor.translateAlternateColorCodes('&', builder.toString());
-    }
-
-    public static String stripColors(String input) {
-        String colorized = colorize(input);
-        String stripped = ChatColor.stripColor(colorized);
-        return stripped == null ? "" : stripped;
-    }
-}
+```text
+UUID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+Name: Notch
+Skin: https://textures.minecraft.net/...
+Profil: https://namemc.com/profile/...
+Abgerufen: 16.05.2026 18:30
 ```
-
-Regeln zur Nutzung:
-
-* Alle Chat-Ausgaben müssen über `MessageUtil.send(...)` oder `MessageUtil.prefixed(...)` laufen.
-* Eigene Prefix-Systeme außerhalb dieser Klasse sind nicht erwünscht.
-* Farbcodes sollen über `MessageUtil.colorize(...)` verarbeitet werden.
 
 ---
 
-## Permissions
+## `/namehistory <spielername>`
+
+Zeigt bekannte Namenshistorien eines Spielers an.
+
+### Beispielausgabe
+
+```text
+1. LukasDev
+2. TheLukasDev
+3. LukasDev_
+```
+
+---
+
+# Permissions
 
 ```text
 nitromc.command.mcinfo
@@ -154,80 +94,165 @@ nitromc.command.namehistory
 
 ---
 
-## `plugin.yml`
+# plugin.yml
 
 ```yaml
 name: NitroApiPlugin
 version: 1.0.0
-main: de.nitromc.api.NitroApiPlugin
+main: net.nitromc.api.NitroApiPlugin
 api-version: '1.20'
 
 commands:
   mcinfo:
-    description: Zeigt Mojang-Spielerinformationen an
+    description: Zeigt Spielerinformationen an
     usage: /mcinfo <spielername>
-    permission: nitromc.mcinfo
+    permission: nitromc.command.mcinfo
 
   namehistory:
-    description: Zeigt Namensinformationen eines Spielers an
+    description: Zeigt die Namenshistorie eines Spielers an
     usage: /namehistory <spielername>
-    permission: nitromc.namehistory
+    permission: nitromc.command.namehistory
 
 permissions:
-  nitromc.mcinfo:
+  nitromc.command.mcinfo:
     default: op
-  nitromc.namehistory:
+
+  nitromc.command.namehistory:
     default: op
 ```
 
 ---
 
-## Hinweise zur API-Nutzung
+# Erwartete Projektstruktur
 
-Das Plugin soll Daten über die Mojang API abrufen. Erwartet wird eine saubere Service-Klasse, zum Beispiel `MojangApiService`, welche die API-Kommunikation kapselt.
+```text
+src/main/java/net/nitromc/api/
+├── NitroApiPlugin.java
+├── command/
+│   ├── McInfoCommand.java
+│   └── NameHistoryCommand.java
+├── service/
+│   └── McApiService.java
+├── model/
+│   ├── PlayerProfile.java
+│   └── NameHistoryEntry.java
+└── util/
+    └── MessageUtil.java
+```
 
-Beispiele für sinnvolle Aufgaben der Service-Klasse:
+---
 
-* Spielerprofil anhand eines Spielernamens abrufen
-* UUID eines Spielers ermitteln
-* Fehlerhafte oder leere API-Antworten behandeln
+# Anforderungen an die Service-Klasse
+
+Die API-Kommunikation soll vollständig gekapselt werden.
+
+Beispiele:
+
+* Spielerprofil abrufen
+* UUID ermitteln
+* Namenshistorie laden
+* HTTP-Fehler behandeln
 * Timeouts setzen
-* Ergebnisse als eigenes Model, z. B. `MojangProfile`, zurückgeben
+* JSON-Daten in Models umwandeln
+* `CompletableFuture` für Async-Verarbeitung verwenden
 
 ---
 
-## Optionale Erweiterungen
+# Vorgaben für Async-Handling
 
-* Cache-System zur Reduzierung von API-Anfragen
-* Konfigurierbare Nachrichten über eine Config-Datei
-* Klickbare Chat-Nachrichten, z. B. Profil-Links
-* Sauberes Error-Handling bei Timeouts, ungültigen Antworten oder API-Ausfällen
-* Strukturierte Model- und Service-Klassen
-* Unit-Tests für API-Service oder Utility-Methoden
+Folgendes ist verpflichtend:
+
+* Keine blockierenden HTTP-Requests im Server-Thread
+* Verwendung von:
+
+  * `CompletableFuture`
+  * Bukkit Async Scheduler
+  * oder Java HttpClient async APIs
+
+Beispiel:
+
+```java
+HttpClient.newHttpClient()
+    .sendAsync(request, HttpResponse.BodyHandlers.ofString())
+```
 
 ---
 
-## Abgabe
+# MessageUtil
 
-Das GitHub-Repository muss enthalten:
+Die bereitgestellte Klasse `MessageUtil` muss für sämtliche Nachrichten verwendet werden.
+
+Erlaubt:
+
+```java
+MessageUtil.send(sender, "&aErfolgreich geladen!");
+```
+
+Nicht erlaubt:
+
+```java
+sender.sendMessage(...);
+```
+
+---
+
+# Empfohlene Dependencies
+
+## Maven
+
+```xml
+<dependency>
+    <groupId>io.papermc.paper</groupId>
+    <artifactId>paper-api</artifactId>
+    <version>1.20.4-R0.1-SNAPSHOT</version>
+    <scope>provided</scope>
+</dependency>
+
+<dependency>
+    <groupId>com.google.code.gson</groupId>
+    <artifactId>gson</artifactId>
+    <version>2.10.1</version>
+</dependency>
+```
+
+---
+
+# Optionale Erweiterungen
+
+* Caching-System
+* Config-Datei
+* klickbare Chat-Komponenten
+* Retry-System bei API-Fehlern
+* Logging
+* Unit-Tests
+* Rate-Limit Handling
+
+---
+
+# Abgabe
+
+Das Repository muss enthalten:
 
 * vollständigen Source Code
 * `README.md`
-* `build.gradle` oder `pom.xml`
 * `plugin.yml`
-* kurze Erklärung der API-Nutzung
+* `pom.xml` oder `build.gradle`
 * Installationsanleitung
+* kurze Erklärung der API-Nutzung
 * Beispielausgaben oder Screenshots
 
 ---
 
-## Bewertungskriterien
+# Bewertungskriterien
 
-Bewertet wird:
+Bewertet werden:
 
-* Verständnis für externe APIs
-* sauberes Async-Handling
-* Codequalität und Struktur
+* API-Verständnis
+* Async-Handling
 * Fehlerbehandlung
-* Lesbarkeit des GitHub-Repositories
-* sinnvolle Nutzung der vorgegebenen `MessageUtil`-Klasse
+* Strukturierung
+* Clean Code
+* Lesbarkeit
+* korrekte Nutzung von `MessageUtil`
+* sinnvolle Objektmodellierung
+* saubere Trennung von Command-, Service- und Model-Schicht
