@@ -4,7 +4,7 @@
  * All rights reserved.
  */
 
-package net.nitromc.nitroapiplugin.util;
+package net.nitromc.api.util;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
