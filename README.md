@@ -16,7 +16,7 @@ Das Plugin soll externe REST-APIs sauber integrieren, HTTP-Requests asynchron ve
 
 # Technische Anforderungen
 
-* Java 17 oder höher
+* Java 21
 * Paper API 1.20+
 * Maven oder Gradle
 * HTTP-Requests ausschließlich asynchron
